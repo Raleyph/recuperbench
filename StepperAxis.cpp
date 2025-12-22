@@ -1,14 +1,19 @@
+#include "Arduino.h"
+#include <math.h>
+
 #include "StepperAxis.h"
 
 StepperAxis::StepperAxis(uint8_t stepPin, uint8_t dirPin, uint8_t enPin,
                          uint8_t minLimPin, uint8_t maxLimPin,
-                         uint8_t homeDir, uint8_t endDir)
+                         uint8_t homeDir, uint8_t endDir,
+                         bool isCAxis)
   : m_stepPin(stepPin), m_dirPin(dirPin), m_enPin(enPin),
     m_minLimPin(minLimPin), m_maxLimPin(maxLimPin),
     m_homeDir(homeDir), m_endDir(endDir),
+    m_isOn(true), m_isCAxis(isCAxis),
     m_lastStepTime(0), m_isStepHigh(false),
-    m_currentDir(FORWARD), m_targetSteps(0),
-    m_currentSteps(0), m_isMoving(false)
+    m_currentDir(FORWARD), m_targetSteps(0), m_currentSteps(0),
+    m_isMoving(false)
 {}
 
 AxisState StepperAxis::movingState() const {
@@ -33,7 +38,7 @@ bool StepperAxis::step() {
   uint32_t now = micros();
 
   if (!m_isStepHigh) {
-    if (now - m_lastStepTime >= STEP_DEFAULT_INTERVAL) {
+    if (now - m_lastStepTime >= m_stepInterval) {
       digitalWrite(m_stepPin, HIGH);
       m_lastStepTime = now;
       m_isStepHigh = true;
@@ -60,17 +65,6 @@ void StepperAxis::begin() {
   enable();
 }
 
-void StepperAxis::move(uint8_t direction, uint32_t steps) {
-  if (steps == 0) return;
-  if (isLimitHit(direction)) return;
-
-  setDirection(direction);
-
-  m_targetSteps = steps;
-  m_currentSteps = 0;
-  m_isMoving = true;
-}
-
 void StepperAxis::update() {
   if (!m_isMoving || isLimitHit(m_currentDir)) {
     m_isMoving = false;
@@ -84,4 +78,25 @@ void StepperAxis::update() {
       m_isMoving = false;
     }
   }
+}
+
+void StepperAxis::toggle() {
+  if (m_isOn) disable();
+  else enable();
+}
+
+void StepperAxis::move(uint8_t direction, uint32_t steps) {
+  if (steps == 0) return;
+  if (isLimitHit(direction)) return;
+
+  if (!m_isCAxis && (steps == STEPS_LIMIT)) {
+    if ((m_minLimPin == NO_PIN) && (direction == m_homeDir)) return;
+    if ((m_maxLimPin == NO_PIN) && (direction == m_endDir)) return;
+  }
+
+  setDirection(direction);
+
+  m_targetSteps = steps;
+  m_currentSteps = 0;
+  m_isMoving = true;
 }

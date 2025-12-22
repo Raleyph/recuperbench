@@ -26,6 +26,7 @@
 #define LCD_D5          21
 #define LCD_D6          5
 #define LCD_D7          6
+#define LCD_BEEPER_PIN  18
 // ================== ENCODER SETTINGS ==================
 #define ENC_A           40
 #define ENC_B           42
@@ -36,14 +37,19 @@
 
 EncButton enc(ENC_A, ENC_B, ENC_SW, INPUT_PULLUP, INPUT_PULLUP);
 
-StepperAxis cAxis (C_STEP_PIN, C_DIR_PIN, C_EN_PIN, NO_PIN, NO_PIN, C_HOME_DIR, C_END_DIR);
+StepperAxis cAxis (C_STEP_PIN, C_DIR_PIN, C_EN_PIN, NO_PIN, NO_PIN, C_HOME_DIR, C_END_DIR, true);
 StepperAxis zAxis (Z_STEP_PIN, Z_DIR_PIN, Z_EN_PIN, Z_MIN_PIN, Z_MAX_PIN, Z_HOME_DIR, Z_END_DIR);
 
 bool isZMoved = false;
 
 void setup() {
+  pinMode(LCD_BEEPER_PIN, OUTPUT);
+
   cAxis.begin();
   zAxis.begin();
+
+  cAxis.disable();
+  cAxis.move(FORWARD);
 
   if (zAxis.movingState() != AxisState::AT_HOME) zAxis.goHome();
 }
@@ -55,16 +61,21 @@ void loop() {
   zAxis.update();
 
   processZAxis();
+  processCAxis();
 }
 
 void processZAxis() {
-  if (enc.release() && (zAxis.movingState() == AxisState::AT_HOME && !isZMoved)) {
+  if (enc.click() && (zAxis.movingState() == AxisState::AT_HOME && !isZMoved)) {
     zAxis.move(FORWARD, 5 * STEPS_PER_CM);
     isZMoved = true;
   }
 
-  if (enc.release() && zAxis.movingState() == AxisState::IDLE) {
+  if (enc.click() && zAxis.movingState() == AxisState::IDLE) {
     zAxis.goHome();
     isZMoved = false;
   }
+}
+
+void processCAxis() {
+  if (enc.hold()) cAxis.toggle();
 }
