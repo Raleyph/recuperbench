@@ -1,16 +1,23 @@
-#include "Arduino.h"
-#include <math.h>
+#include <Arduino.h>
 
 #include "StepperAxis.h"
 
+//////////////////////////////////////////////////////////////////////////
+// Constrains
+static const uint8_t  STEP_PULSE_WIDTH = 2;
+static const uint16_t SPEED_STEP = 20;
+
+//////////////////////////////////////////////////////////////////////////
+// Constructor & Common Methods & FSM
 StepperAxis::StepperAxis(uint8_t stepPin, uint8_t dirPin, uint8_t enPin,
                          uint8_t minLimPin, uint8_t maxLimPin,
                          uint8_t homeDir, uint8_t endDir,
-                         bool isCAxis)
+                         bool isCAxis, uint16_t startStepInterval)
   : m_stepPin(stepPin), m_dirPin(dirPin), m_enPin(enPin),
     m_minLimPin(minLimPin), m_maxLimPin(maxLimPin),
     m_homeDir(homeDir), m_endDir(endDir),
     m_isOn(true), m_isCAxis(isCAxis),
+    m_stepInterval(startStepInterval),
     m_lastStepTime(0), m_isStepHigh(false),
     m_currentDir(FORWARD), m_targetSteps(0), m_currentSteps(0),
     m_isMoving(false)
@@ -21,37 +28,6 @@ AxisState StepperAxis::movingState() const {
   if (isMinHit()) return AT_HOME;
   if (isMaxHit()) return AT_END;
   return IDLE;
-}
-
-void StepperAxis::setDirection(uint8_t direction) {
-  m_currentDir = direction;
-  digitalWrite(m_dirPin, direction ? HIGH : LOW);
-}
-
-bool StepperAxis::isLimitHit(uint8_t direction) {
-  if (direction == FORWARD && isMaxHit()) return true;
-  if (direction == BACKWARD && isMinHit()) return true;
-  return false;
-}
-
-bool StepperAxis::step() {
-  uint32_t now = micros();
-
-  if (!m_isStepHigh) {
-    if (now - m_lastStepTime >= m_stepInterval) {
-      digitalWrite(m_stepPin, HIGH);
-      m_lastStepTime = now;
-      m_isStepHigh = true;
-    }
-  } else {
-    if (now - m_lastStepTime >= STEP_PULSE_WIDTH) {
-      digitalWrite(m_stepPin, LOW);
-      m_isStepHigh = false;
-      return true;
-    }
-  }
-
-  return false;
 }
 
 void StepperAxis::begin() {
@@ -80,9 +56,47 @@ void StepperAxis::update() {
   }
 }
 
-void StepperAxis::toggle() {
-  if (m_isOn) disable();
-  else enable();
+//////////////////////////////////////////////////////////////////////////
+// Direction & Limits
+void StepperAxis::setDirection(uint8_t direction) {
+  m_currentDir = direction;
+  digitalWrite(m_dirPin, direction ? HIGH : LOW);
+}
+
+bool StepperAxis::isMinHit() const {
+  return m_minLimPin != NO_PIN && digitalRead(m_minLimPin) == HIGH;
+}
+
+bool StepperAxis::isMaxHit() const {
+  return m_maxLimPin != NO_PIN && digitalRead(m_maxLimPin) == HIGH;
+}
+
+bool StepperAxis::isLimitHit(uint8_t direction) {
+  if (direction == FORWARD && isMaxHit()) return true;
+  if (direction == BACKWARD && isMinHit()) return true;
+  return false;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Movement
+bool StepperAxis::step() {
+  uint32_t now = micros();
+
+  if (!m_isStepHigh) {
+    if (now - m_lastStepTime >= m_stepInterval) {
+      digitalWrite(m_stepPin, HIGH);
+      m_lastStepTime = now;
+      m_isStepHigh = true;
+    }
+  } else {
+    if (now - m_lastStepTime >= STEP_PULSE_WIDTH) {
+      digitalWrite(m_stepPin, LOW);
+      m_isStepHigh = false;
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void StepperAxis::move(uint8_t direction, uint32_t steps) {
@@ -99,4 +113,31 @@ void StepperAxis::move(uint8_t direction, uint32_t steps) {
   m_targetSteps = steps;
   m_currentSteps = 0;
   m_isMoving = true;
+}
+
+void StepperAxis::setSpeed(int8_t speedDir) {
+  int16_t speed = m_stepInterval;
+
+  if (speedDir > 0) speed -= SPEED_STEP;
+  if (speedDir < 0) speed += SPEED_STEP;
+
+  speed = constrain(speed, STEP_INTERVAL_MIN, STEP_INTERVAL_MAX);
+  m_stepInterval = (uint16_t)speed;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Turning
+void StepperAxis::enable() {
+  digitalWrite(m_enPin, LOW);
+  m_isOn = true;
+}
+
+void StepperAxis::disable() {
+  digitalWrite(m_enPin, HIGH);
+  m_isOn = false;
+}
+
+void StepperAxis::toggle() {
+  if (m_isOn) disable();
+  else enable();
 }

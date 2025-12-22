@@ -1,17 +1,12 @@
 #ifndef STEPPER_AXIS_H
 #define STEPPER_AXIS_H
 
-#include <Arduino.h>
+#define FORWARD      0
+#define BACKWARD     1
 
-#define FORWARD                 0
-#define BACKWARD                1
+#define NO_PIN       255
 
-#define NO_PIN                  255
-
-#define STEP_INTERVAL_DEFAULT   200
-#define STEP_PULSE_WIDTH        2
-#define STEPS_PER_CM            4000
-#define STEPS_LIMIT             0xFFFFFFFF
+#define STEPS_PER_CM 4000
 
 enum AxisState : uint8_t {
   IDLE,
@@ -27,27 +22,28 @@ class StepperAxis {
     uint8_t  m_minLimPin, m_maxLimPin;
     uint8_t  m_homeDir, m_endDir;
 
-    bool     m_isOn = true;
-    bool     m_isCAxis = false;
+    bool     m_isOn;
+    bool     m_isCAxis;
 
-    uint16_t m_stepInterval = STEP_INTERVAL_DEFAULT;
-    int32_t  m_speed = 50;
+    uint16_t m_stepInterval;
 
-    uint32_t m_lastStepTime = 0;
-    bool     m_isStepHigh = false;
+    uint32_t m_lastStepTime;
+    bool     m_isStepHigh;
 
-    uint8_t  m_currentDir = FORWARD;
-    uint32_t m_targetSteps = 0;
-    uint32_t m_currentSteps = 0;
+    uint8_t  m_currentDir;
+    uint32_t m_targetSteps;
+    uint32_t m_currentSteps;
 
-    bool     m_isMoving = false;
+    bool     m_isMoving;
+  
+    static constexpr uint32_t STEPS_LIMIT = UINT32_MAX;
+    static constexpr uint16_t STEP_INTERVAL_DEFAULT = 200;
 
   private:
     void setDirection(uint8_t direction);
 
-    bool isMinHit() const { return m_minLimPin != NO_PIN && digitalRead(m_minLimPin) == HIGH; }
-    bool isMaxHit() const { return m_maxLimPin != NO_PIN && digitalRead(m_maxLimPin) == HIGH; }
-
+    bool isMinHit() const;
+    bool isMaxHit() const;
     bool isLimitHit(uint8_t direction);
 
     bool step();
@@ -56,28 +52,27 @@ class StepperAxis {
     StepperAxis(uint8_t stepPin, uint8_t dirPin, uint8_t enPin,
                 uint8_t minLimPin, uint8_t maxLimPin,
                 uint8_t homeDir, uint8_t endDir,
-                bool isCAxis = false);
+                bool isCAxis = false, uint16_t startStepInterval = STEP_INTERVAL_DEFAULT);
     
     AxisState movingState() const;
     
     void begin();
     void update();
 
-    void enable() { digitalWrite(m_enPin, LOW); m_isOn = true; }
-    void disable() { digitalWrite(m_enPin, HIGH); m_isOn = false; }
+    void enable();
+    void disable();
     void toggle();
 
-    void setSpeed(uint32_t interval);
+    void setSpeed(int8_t speedDir);
     void move(uint8_t direction, uint32_t steps = STEPS_LIMIT);
 
     void goHome() { move(m_homeDir); }
     void goEnd() { move(m_endDir); }
 
-    int32_t speed() const { return m_speed; }
+    bool isOn() const { return m_isOn; }
     uint8_t currentDir() const { return m_currentDir; }
     bool isMoving() const { return m_isMoving; }
-  
-  public:
+
     static constexpr uint16_t STEP_INTERVAL_MIN = 200;
     static constexpr uint16_t STEP_INTERVAL_MAX = 2000;
 };

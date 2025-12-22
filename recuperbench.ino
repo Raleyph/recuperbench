@@ -1,8 +1,15 @@
 /*
- * Recuperbench Firmware v.1
+ * Recuperbench Firmware v.1.1
  * Copyright © 2025 MG Inc. [https://mg-inc.org]
  * 
  * Designed by Raleyph
+ * Copyright © 2025 Raleyph [https://github.com/Raleyph]
+ *
+ * The original workbench uses:
+ * - Board GT2560 Rev A+
+ * - MKS Mini 12864KBA v.1.2
+ * - Step motors 42SHD0034-20B (2 on Z-Axis and 1 on C-Axis)
+ * - Lead screws T8
  */
 
 // ================== C AXIS SETTINGS ===================
@@ -33,11 +40,12 @@
 #define ENC_SW          19
 // ================== LIBRARIES =========================
 #include <EncButton.h>
+
 #include "StepperAxis.h"
 
 EncButton enc(ENC_A, ENC_B, ENC_SW, INPUT_PULLUP, INPUT_PULLUP);
 
-StepperAxis cAxis (C_STEP_PIN, C_DIR_PIN, C_EN_PIN, NO_PIN, NO_PIN, C_HOME_DIR, C_END_DIR, true);
+StepperAxis cAxis (C_STEP_PIN, C_DIR_PIN, C_EN_PIN, NO_PIN, NO_PIN, C_HOME_DIR, C_END_DIR, true, StepperAxis::STEP_INTERVAL_MAX);
 StepperAxis zAxis (Z_STEP_PIN, Z_DIR_PIN, Z_EN_PIN, Z_MIN_PIN, Z_MAX_PIN, Z_HOME_DIR, Z_END_DIR);
 
 bool isZMoved = false;
@@ -78,4 +86,5 @@ void processZAxis() {
 
 void processCAxis() {
   if (enc.hold()) cAxis.toggle();
+  if (enc.turn() && cAxis.isOn()) cAxis.setSpeed(enc.dir()); 
 }
