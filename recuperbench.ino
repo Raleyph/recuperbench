@@ -12,6 +12,9 @@
  * - Lead screws T8
  */
 
+// ================== MOTOR CONSTRAINS ==================
+#define STEPS_PER_CM         4000
+#define STEPS_PER_REVOLUTION 200
 // ================== C AXIS SETTINGS ===================
 #define C_STEP_PIN      25
 #define C_DIR_PIN       23
@@ -26,14 +29,6 @@
 #define Z_MAX_PIN       32
 #define Z_HOME_DIR      BACKWARD
 #define Z_END_DIR       FORWARD
-// ================== LCD SETTINGS ======================
-#define LCD_RS          20
-#define LCD_RW          17
-#define LCD_D4          16
-#define LCD_D5          21
-#define LCD_D6          5
-#define LCD_D7          6
-#define LCD_BEEPER_PIN  18
 // ================== ENCODER SETTINGS ==================
 #define ENC_A           40
 #define ENC_B           42
@@ -43,23 +38,31 @@
 
 #include "StepperAxis.h"
 
+enum BenchState : uint8_t {
+  INIT,
+  READY,
+  MACHINING,
+  PART_REMOVAL,
+  HOMING,
+  ERROR
+};
+
 EncButton enc(ENC_A, ENC_B, ENC_SW, INPUT_PULLUP, INPUT_PULLUP);
 
-StepperAxis cAxis (C_STEP_PIN, C_DIR_PIN, C_EN_PIN, NO_PIN, NO_PIN, C_HOME_DIR, C_END_DIR, true, StepperAxis::STEP_INTERVAL_MAX);
-StepperAxis zAxis (Z_STEP_PIN, Z_DIR_PIN, Z_EN_PIN, Z_MIN_PIN, Z_MAX_PIN, Z_HOME_DIR, Z_END_DIR);
+StepperAxis cAxis (C_STEP_PIN, C_DIR_PIN, C_EN_PIN,
+                   NO_PIN, NO_PIN, C_HOME_DIR, C_END_DIR, true);
 
-bool isZMoved = false;
+StepperAxis zAxis (Z_STEP_PIN, Z_DIR_PIN, Z_EN_PIN,
+                   Z_MIN_PIN, Z_MAX_PIN, Z_HOME_DIR, Z_END_DIR);
+
+BenchState state = INIT;
+BenchState prevState = (BenchState)255;
 
 void setup() {
-  pinMode(LCD_BEEPER_PIN, OUTPUT);
+  Serial.begin(9600);
 
   cAxis.begin();
   zAxis.begin();
-
-  cAxis.disable();
-  cAxis.move(FORWARD);
-
-  if (zAxis.movingState() != AxisState::AT_HOME) zAxis.goHome();
 }
 
 void loop() {
@@ -68,23 +71,94 @@ void loop() {
   cAxis.update();
   zAxis.update();
 
-  processZAxis();
-  processCAxis();
+  fsmUpdate();
+  changeMotorsSpeed();
 }
 
-void processZAxis() {
-  if (enc.click() && (zAxis.movingState() == AxisState::AT_HOME && !isZMoved)) {
-    zAxis.move(FORWARD, 5 * STEPS_PER_CM);
-    isZMoved = true;
+void fsmUpdate() {
+  if (state != prevState) {
+    onEnter();
+    prevState = state;
   }
 
-  if (enc.click() && zAxis.movingState() == AxisState::IDLE) {
+  // FSM Transitions
+  switch(state) {
+    case INIT:
+      if (zAxis.movingState() == AxisState::AT_HOME)
+        state = READY;
+      break;
+    case READY:
+      if (enc.click() && (zAxis.movingState() == AxisState::AT_HOME))
+        state = MACHINING;
+      break;
+    case MACHINING:
+      if (zAxis.movingState() == AxisState::AT_END)
+        state = PART_REMOVAL;
+      break;
+    case PART_REMOVAL:
+      if (enc.click())
+        state = HOMING;
+      break;
+    case HOMING:
+      if (zAxis.movingState() == AxisState::AT_HOME)
+        state = READY;
+      break;
+  }
+}
+
+void onEnter() {
+  switch (state) {
+    case INIT:
+      initialize();
+      break;
+    case READY:
+      Serial.println("READY");
+      break;
+    case MACHINING:
+      machining();
+      break;
+    case PART_REMOVAL:
+      part_removal();
+      break;
+    case HOMING:
+      homing();
+      break;
+  }
+}
+
+void initialize() {
+  Serial.println("INIT");
+
+  if (zAxis.movingState() != AxisState::AT_HOME)
     zAxis.goHome();
-    isZMoved = false;
-  }
+  
+  cAxis.disable();
 }
 
-void processCAxis() {
-  if (enc.hold()) cAxis.toggle();
-  if (enc.turn() && cAxis.isOn()) cAxis.setSpeed(enc.dir()); 
+void machining() {
+  Serial.println("MANCHINING");
+
+  zAxis.goEnd();
+
+  cAxis.enable();
+  cAxis.move(FORWARD);
+}
+
+void part_removal() {
+  Serial.println("PART_REMOVAL");
+
+  cAxis.stop();
+  cAxis.disable();
+}
+
+void homing() {
+  Serial.println("HOMING");
+
+  zAxis.goHome();
+}
+
+void changeMotorsSpeed() {
+  if (!enc.turn()) return;
+  zAxis.setSpeed(enc.dir());
+  cAxis.setSpeed(enc.dir());
 }

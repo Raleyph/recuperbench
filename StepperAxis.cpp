@@ -1,3 +1,6 @@
+// Copyright © 2025 MG Inc.
+// Copyright © 2025 Raleyph
+
 #include <Arduino.h>
 
 #include "StepperAxis.h"
@@ -5,6 +8,8 @@
 //////////////////////////////////////////////////////////////////////////
 // Constrains
 static const uint8_t  STEP_PULSE_WIDTH = 2;
+static const uint16_t STEP_INTERVAL_MIN = 200;
+static const uint16_t STEP_INTERVAL_MAX = 1200;
 static const uint16_t SPEED_STEP = 20;
 
 //////////////////////////////////////////////////////////////////////////
@@ -12,12 +17,12 @@ static const uint16_t SPEED_STEP = 20;
 StepperAxis::StepperAxis(uint8_t stepPin, uint8_t dirPin, uint8_t enPin,
                          uint8_t minLimPin, uint8_t maxLimPin,
                          uint8_t homeDir, uint8_t endDir,
-                         bool isCAxis, uint16_t startStepInterval)
+                         bool isCAxis)
   : m_stepPin(stepPin), m_dirPin(dirPin), m_enPin(enPin),
     m_minLimPin(minLimPin), m_maxLimPin(maxLimPin),
     m_homeDir(homeDir), m_endDir(endDir),
     m_isOn(true), m_isCAxis(isCAxis),
-    m_stepInterval(startStepInterval),
+    m_stepInterval(STEP_INTERVAL_MAX),
     m_lastStepTime(0), m_isStepHigh(false),
     m_currentDir(FORWARD), m_targetSteps(0), m_currentSteps(0),
     m_isMoving(false)
@@ -113,6 +118,12 @@ void StepperAxis::move(uint8_t direction, uint32_t steps) {
   m_targetSteps = steps;
   m_currentSteps = 0;
   m_isMoving = true;
+}
+
+void StepperAxis::stop() {
+  m_targetSteps = 0;
+  m_currentSteps = 0;
+  m_isMoving = false;
 }
 
 void StepperAxis::setSpeed(int8_t speedDir) {
