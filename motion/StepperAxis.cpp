@@ -8,9 +8,9 @@
 //////////////////////////////////////////////////////////////////////////
 // Constrains
 static const uint8_t  STEP_PULSE_WIDTH = 2;
-static const uint16_t STEP_INTERVAL_MIN = 200;
-static const uint16_t STEP_INTERVAL_MAX = 1200;
-static const uint16_t SPEED_STEP = 20;
+static const uint16_t STEP_INTERVAL_MIN = 150;
+static const uint16_t STEP_INTERVAL_MAX = 1500;
+static const uint16_t SPEED_STEP = 15;
 
 //////////////////////////////////////////////////////////////////////////
 // Constructor & Common Methods & FSM
@@ -25,7 +25,7 @@ StepperAxis::StepperAxis(uint8_t stepPin, uint8_t dirPin, uint8_t enPin,
     m_stepInterval(STEP_INTERVAL_MAX),
     m_lastStepTime(0), m_isStepHigh(false),
     m_currentDir(FORWARD), m_targetSteps(0), m_currentSteps(0),
-    m_isMoving(false)
+    m_stepEvent(false), m_isMoving(false)
 {}
 
 AxisState StepperAxis::movingState() const {
@@ -47,6 +47,8 @@ void StepperAxis::begin() {
 }
 
 void StepperAxis::update() {
+  m_stepEvent = false;
+
   if (!m_isMoving || isLimitHit(m_currentDir)) {
     m_isMoving = false;
     return;
@@ -54,6 +56,7 @@ void StepperAxis::update() {
 
   if (step()) {
     m_currentSteps++;
+    m_stepEvent = true;
 
     if (m_currentSteps >= m_targetSteps) {
       m_isMoving = false;
@@ -127,8 +130,9 @@ void StepperAxis::stop() {
 }
 
 void StepperAxis::setSpeed(int8_t speedDir) {
-  int16_t speed = m_stepInterval;
+  if (m_isCAxis) return;
 
+  int16_t speed = m_stepInterval;
   if (speedDir > 0) speed -= SPEED_STEP;
   if (speedDir < 0) speed += SPEED_STEP;
 

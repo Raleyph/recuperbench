@@ -4,10 +4,11 @@
 #ifndef STEPPER_AXIS_H
 #define STEPPER_AXIS_H
 
-#define FORWARD  0
-#define BACKWARD 1
+#include <Arduino.h>
 
-#define NO_PIN   255
+constexpr uint8_t FORWARD  = 0;
+constexpr uint8_t BACKWARD = 1;
+constexpr uint8_t NO_PIN   = 255;
 
 enum AxisState : uint8_t {
   IDLE,
@@ -35,6 +36,7 @@ class StepperAxis {
     uint32_t m_targetSteps;
     uint32_t m_currentSteps;
 
+    bool     m_stepEvent;
     bool     m_isMoving;
   
     static constexpr uint32_t STEPS_LIMIT = UINT32_MAX;
@@ -69,11 +71,13 @@ class StepperAxis {
     void setSpeed(int8_t speedDir);
 
     void goHome() { move(m_homeDir); }
-    void goEnd() { move(m_endDir); }
+    void goToEnd() { move(m_endDir); }
 
     bool isOn() const { return m_isOn; }
     uint8_t currentDir() const { return m_currentDir; }
+
+    bool didStep() const { return m_stepEvent; }
     bool isMoving() const { return m_isMoving; }
 };
 
-#endif
+#endif // STEPPER_AXIS_H
