@@ -1,0 +1,14 @@
+# PlatformIO
+.pio/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.elf
+*.bin
+*.map
