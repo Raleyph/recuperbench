@@ -9,6 +9,8 @@
 #include <StepperAxis.h>
 #include <AxisSynchronizer.h>
 
+#include <LCD.h>
+
 #include "System.h"
 
 SystemState System::m_state;
@@ -26,6 +28,8 @@ static AxisSynchronizer sync(zAxis, cAxis);
 
 static EncButton encoder(ENC_A, ENC_B, ENC_SW, INPUT_PULLUP, INPUT_PULLUP);
 
+static LCD lcd(LCD_CLK, LCD_DATA, LCD_CS);
+
 //////////////////////////////////////////////////////////////////////////
 // Common Public Methods
 void System::init() {
@@ -38,6 +42,8 @@ void System::init() {
 
 void System::update() {
   encoder.tick();
+  lcd.update(m_state);
+
   updateFsm();
   changeSpeed();
 
@@ -50,6 +56,8 @@ void System::update() {
 void System::initHardware() {
   zAxis.begin();
   cAxis.begin();
+  lcd.begin();
+  lcd.startSplash();
 }
 
 void System::initMotion() {

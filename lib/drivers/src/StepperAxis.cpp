@@ -1,16 +1,14 @@
 // Copyright © 2025 MG Inc.
 // Copyright © 2025 Raleyph
 
-#include <Arduino.h>
-
 #include "StepperAxis.h"
 
 //////////////////////////////////////////////////////////////////////////
 // Constrains
 static const uint8_t  STEP_PULSE_WIDTH  = 2;
-static const uint16_t STEP_INTERVAL_MIN = 150;
-static const uint16_t STEP_INTERVAL_MAX = 1500;
-static const uint16_t SPEED_STEP = 15;
+static const float STEP_INTERVAL_MIN    = 150.0f;
+static const float STEP_INTERVAL_MAX    = 1500.0f;
+static const uint16_t SPEED_STEP        = 15;
 
 //////////////////////////////////////////////////////////////////////////
 // Constructor & Common Methods & FSM

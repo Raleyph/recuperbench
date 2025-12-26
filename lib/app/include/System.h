@@ -4,13 +4,7 @@
 #ifndef SYSTEM_H
 #define SYSTEM_H
 
-enum SystemState : uint8_t {
-  INIT,
-  READY,
-  MACHINING,
-  PART_REMOVAL,
-  HOMING
-};
+#include <SystemState.h>
 
 class System {
   private:
@@ -37,4 +31,4 @@ class System {
     static void changeSpeed();
 };
 
-#endif
+#endif // SYSTEM_H

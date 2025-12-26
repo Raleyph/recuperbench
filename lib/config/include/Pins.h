@@ -14,3 +14,7 @@
 #define ENC_A       40
 #define ENC_B       42
 #define ENC_SW      19
+
+#define LCD_CLK     16
+#define LCD_DATA    17
+#define LCD_CS      20
