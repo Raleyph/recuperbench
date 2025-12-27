@@ -8,20 +8,21 @@
 
 class AxisSynchronizer {
   private:
-    StepperAxis& m_zAxis;
-    StepperAxis& m_cAxis;
+    StepperAxis* m_master = nullptr;
+    StepperAxis* m_slave = nullptr;
 
-    float m_ratio;
-    float m_cAccumulator;
+    volatile int32_t m_accumulator = 0;
+    int32_t m_slaveSteps = 0;
+    int32_t m_masterSteps = 1;
   
   public:
-    AxisSynchronizer(StepperAxis& zAxis, StepperAxis& cAxis);
+    AxisSynchronizer(StepperAxis* zAxis, StepperAxis* cAxis);
 
     AxisSynchronizer(const AxisSynchronizer&) = delete;
     AxisSynchronizer& operator=(const AxisSynchronizer&) = delete;
 
-    void update();
-    void setRatio(float ratio);
+    void isrUpdate();
+    void setRatio(uint16_t slaveStep, uint16_t masterSteps);
 };
 
 #endif // AXIS_SYNCHRONIZER_H

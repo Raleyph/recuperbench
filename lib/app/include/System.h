@@ -16,6 +16,8 @@ class System {
     static void update();
 
   private:
+    static void initTimer();
+
     static void initHardware();
     static void initMotion();
 

@@ -3,23 +3,29 @@
 
 #include "AxisSynchronizer.h"
 
-AxisSynchronizer::AxisSynchronizer(StepperAxis& zAxis, StepperAxis& cAxis)
-  : m_zAxis(zAxis), m_cAxis(cAxis) {}
+AxisSynchronizer::AxisSynchronizer(StepperAxis* master, StepperAxis* slave)
+  : m_master(master), m_slave(slave) {}
 
-void AxisSynchronizer::setRatio(float ratio) {
-  if (ratio <= 0.0f) return;
-  m_ratio = ratio;
+void AxisSynchronizer::isrUpdate() {
+  if (!m_master || !m_slave || !m_master->didStepISR()) return;
+
+  m_accumulator += m_slaveSteps;
+
+  if (m_accumulator >= m_masterSteps) {
+    m_slave->forceStepISR();
+    m_accumulator -= m_masterSteps;
+  }
 }
 
-void AxisSynchronizer::update() {
-  m_zAxis.update();
+void AxisSynchronizer::setRatio(uint16_t slaveStep, uint16_t masterSteps)
+{
+  if (masterSteps == 0) return;
 
-  if (!m_zAxis.didStep()) return;
+  noInterrupts();
 
-  m_cAccumulator += m_ratio;
+  m_slaveSteps = slaveStep;
+  m_masterSteps = masterSteps;
+  m_accumulator = 0;
 
-  if (m_cAccumulator >= 1.0f) {
-    m_cAxis.update();
-    m_cAccumulator -= 1.0f;
-  }
+  interrupts();
 }

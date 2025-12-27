@@ -20,27 +20,31 @@ enum AxisState : uint8_t {
 
 class StepperAxis {
   private:
-    uint8_t  m_stepPin, m_dirPin, m_enPin;
-    uint8_t  m_minLimPin, m_maxLimPin;
-    uint8_t  m_homeDir, m_endDir;
+    //////////////////////////////////////////////////////////////////////////
+    // Common Fields
+    uint8_t m_stepPin, m_dirPin, m_enPin;
+    uint8_t m_minLimPin, m_maxLimPin;
+    uint8_t m_homeDir, m_endDir;
 
-    bool     m_isOn;
-    bool     m_isCAxis;
+    bool m_isOn;
+    bool m_isCAxis;
 
-    uint16_t m_stepInterval;
+    //////////////////////////////////////////////////////////////////////////
+    // ISR
+    volatile bool m_isMoving;
+    volatile bool m_isStepHigh;
+    volatile bool m_isStepEvent;    
 
-    uint32_t m_lastStepTime;
-    bool     m_isStepHigh;
+    volatile uint8_t  m_currentDir;
+    volatile uint32_t m_targetSteps;
+    volatile uint32_t m_currentSteps;
 
-    uint8_t  m_currentDir;
-    uint32_t m_targetSteps;
-    uint32_t m_currentSteps;
+    volatile uint16_t m_tickCounter;
+    volatile uint8_t  m_ticksPerStep;
 
-    bool     m_stepEvent;
-    bool     m_isMoving;
-  
+    //////////////////////////////////////////////////////////////////////////
+    // Constrains
     static constexpr uint32_t STEPS_LIMIT = UINT32_MAX;
-    static constexpr uint16_t STEP_INTERVAL_DEFAULT = 200;
 
   private:
     void setDirection(uint8_t direction);
@@ -49,35 +53,44 @@ class StepperAxis {
     bool isMaxHit() const;
     bool isLimitHit(uint8_t direction);
 
-    bool step();
-
   public:
     StepperAxis(uint8_t stepPin, uint8_t dirPin, uint8_t enPin,
                 uint8_t minLimPin, uint8_t maxLimPin,
                 uint8_t homeDir, uint8_t endDir,
                 bool isCAxis = false);
     
-    AxisState movingState() const;
-    
     void begin();
-    void update();
 
+    //////////////////////////////////////////////////////////////////////////
+    // On / Off
     void enable();
     void disable();
     void toggle();
 
+    //////////////////////////////////////////////////////////////////////////
+    // Movement
     void move(uint8_t direction, uint32_t steps = STEPS_LIMIT);
     void stop();
-    void setSpeed(int8_t speedDir);
+    void setSpeed(int8_t dir);
+
+    void isrUpdate();
+    void forceStepISR();
 
     void goHome() { move(m_homeDir); }
     void goToEnd() { move(m_endDir); }
 
-    bool isOn() const { return m_isOn; }
-    uint8_t currentDir() const { return m_currentDir; }
+    //////////////////////////////////////////////////////////////////////////
+    // Properties
+    AxisState movingState() const;
 
-    bool didStep() const { return m_stepEvent; }
+    bool isOn() const { return m_isOn; }
+    bool isCAxis() const { return m_isCAxis; }
+
     bool isMoving() const { return m_isMoving; }
+    inline bool didStepISR() const { return m_isStepEvent; }
+
+    uint8_t currentDir() const { return m_currentDir; }
+    uint16_t ticksPerStep() const { return m_ticksPerStep; }
 };
 
 #endif // STEPPER_AXIS_H

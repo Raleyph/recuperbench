@@ -1,5 +1,5 @@
 /*
- * Recuperbench Firmware v.1.3
+ * Recuperbench Firmware v.1.4
  * Copyright © 2025 MG Inc. [https://mg-inc.org]
  * 
  * Designed by Raleyph
@@ -17,7 +17,6 @@
 #include <System.h>
 
 void setup() {
-  Serial.begin(9600);
   System::init();
 }
 

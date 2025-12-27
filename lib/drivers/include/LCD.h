@@ -20,14 +20,14 @@ class LCD {
 
     private:
         void drawSplash();
-        void drawMain(SystemState state);
+        void drawMain(SystemState state, uint16_t ticksPerStep);
         void clear();
 
     public:
         LCD(uint8_t clk, uint8_t data, uint8_t cs);
 
         void begin();
-        void update(SystemState state);
+        void update(SystemState state, uint16_t ticksPerStep);
         void startSplash();
 };
 

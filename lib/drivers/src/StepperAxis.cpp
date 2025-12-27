@@ -1,14 +1,9 @@
 // Copyright © 2025 MG Inc.
 // Copyright © 2025 Raleyph
 
-#include "StepperAxis.h"
+#include <Kinematics.h>
 
-//////////////////////////////////////////////////////////////////////////
-// Constrains
-static const uint8_t  STEP_PULSE_WIDTH  = 2;
-static const float STEP_INTERVAL_MIN    = 150.0f;
-static const float STEP_INTERVAL_MAX    = 1500.0f;
-static const uint16_t SPEED_STEP        = 15;
+#include "StepperAxis.h"
 
 //////////////////////////////////////////////////////////////////////////
 // Constructor & Common Methods & FSM
@@ -20,18 +15,10 @@ StepperAxis::StepperAxis(uint8_t stepPin, uint8_t dirPin, uint8_t enPin,
     m_minLimPin(minLimPin), m_maxLimPin(maxLimPin),
     m_homeDir(homeDir), m_endDir(endDir),
     m_isOn(true), m_isCAxis(isCAxis),
-    m_stepInterval(STEP_INTERVAL_MAX),
-    m_lastStepTime(0), m_isStepHigh(false),
+    m_isMoving(false), m_isStepHigh(false), m_isStepEvent(false),
     m_currentDir(FORWARD), m_targetSteps(0), m_currentSteps(0),
-    m_stepEvent(false), m_isMoving(false)
+    m_tickCounter(0), m_ticksPerStep(STEP_INTERVAL_MIN)
 {}
-
-AxisState StepperAxis::movingState() const {
-  if (m_isMoving) return (m_currentDir == FORWARD) ? MOVING_END : MOVING_HOME;
-  if (isMinHit()) return AT_HOME;
-  if (isMaxHit()) return AT_END;
-  return IDLE;
-}
 
 void StepperAxis::begin() {
   pinMode(m_stepPin, OUTPUT);
@@ -42,24 +29,6 @@ void StepperAxis::begin() {
   if (m_maxLimPin != NO_PIN) pinMode(m_maxLimPin, INPUT_PULLUP);
 
   enable();
-}
-
-void StepperAxis::update() {
-  m_stepEvent = false;
-
-  if (!m_isMoving || isLimitHit(m_currentDir)) {
-    m_isMoving = false;
-    return;
-  }
-
-  if (step()) {
-    m_currentSteps++;
-    m_stepEvent = true;
-
-    if (m_currentSteps >= m_targetSteps) {
-      m_isMoving = false;
-    }
-  }
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -84,62 +53,7 @@ bool StepperAxis::isLimitHit(uint8_t direction) {
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Movement
-bool StepperAxis::step() {
-  uint32_t now = micros();
-
-  if (!m_isStepHigh) {
-    if (now - m_lastStepTime >= m_stepInterval) {
-      digitalWrite(m_stepPin, HIGH);
-      m_lastStepTime = now;
-      m_isStepHigh = true;
-    }
-  } else {
-    if (now - m_lastStepTime >= STEP_PULSE_WIDTH) {
-      digitalWrite(m_stepPin, LOW);
-      m_isStepHigh = false;
-      return true;
-    }
-  }
-
-  return false;
-}
-
-void StepperAxis::move(uint8_t direction, uint32_t steps) {
-  if (steps == 0) return;
-  if (isLimitHit(direction)) return;
-
-  if (!m_isCAxis && (steps == STEPS_LIMIT)) {
-    if ((m_minLimPin == NO_PIN) && (direction == m_homeDir)) return;
-    if ((m_maxLimPin == NO_PIN) && (direction == m_endDir)) return;
-  }
-
-  setDirection(direction);
-
-  m_targetSteps = steps;
-  m_currentSteps = 0;
-  m_isMoving = true;
-}
-
-void StepperAxis::stop() {
-  m_targetSteps = 0;
-  m_currentSteps = 0;
-  m_isMoving = false;
-}
-
-void StepperAxis::setSpeed(int8_t speedDir) {
-  if (m_isCAxis) return;
-
-  int16_t speed = m_stepInterval;
-  if (speedDir > 0) speed -= SPEED_STEP;
-  if (speedDir < 0) speed += SPEED_STEP;
-
-  speed = constrain(speed, STEP_INTERVAL_MIN, STEP_INTERVAL_MAX);
-  m_stepInterval = (uint16_t)speed;
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Turning
+// On / Off
 void StepperAxis::enable() {
   digitalWrite(m_enPin, LOW);
   m_isOn = true;
@@ -153,4 +67,98 @@ void StepperAxis::disable() {
 void StepperAxis::toggle() {
   if (m_isOn) disable();
   else enable();
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Movement
+void StepperAxis::move(uint8_t direction, uint32_t steps) {
+  if (steps == 0) return;
+  if (isLimitHit(direction)) return;
+
+  if (!m_isCAxis && (steps == STEPS_LIMIT)) {
+    if ((m_minLimPin == NO_PIN) && (direction == m_homeDir)) return;
+    if ((m_maxLimPin == NO_PIN) && (direction == m_endDir)) return;
+  }
+
+  setDirection(direction);
+
+  noInterrupts();
+
+  m_targetSteps  = steps;
+  m_currentSteps = 0;
+  m_tickCounter  = 0;
+  m_isMoving     = true;
+
+  interrupts();
+}
+
+void StepperAxis::stop() {
+  noInterrupts();
+  m_isMoving = false;
+  interrupts();
+}
+
+void StepperAxis::setSpeed(int8_t dir) {
+  if (m_isCAxis || dir == 0) return;
+
+  noInterrupts();
+
+  int8_t v = m_ticksPerStep;
+
+  if (dir > 0) v -= 1;
+  if (dir < 0) v += 1;
+
+  v = constrain((uint8_t)v, STEP_INTERVAL_MIN, STEP_INTERVAL_MAX);
+  m_ticksPerStep = v;
+
+  interrupts();
+}
+
+void StepperAxis::isrUpdate()
+{
+  m_isStepEvent = false;
+
+  if (!m_isMoving) return;
+  if (isLimitHit(m_currentDir)) {
+    m_isMoving = false;
+    return;
+  }
+
+  m_tickCounter++;
+
+  if (m_tickCounter < m_ticksPerStep) return;
+  m_tickCounter = 0;
+
+  if (m_isStepHigh) {
+    digitalWrite(m_stepPin, LOW);
+    m_isStepHigh = false;
+
+    m_currentSteps++;
+    m_isStepEvent = true;
+
+    if (m_currentSteps >= m_targetSteps)
+      m_isMoving = false;
+  } else {
+    digitalWrite(m_stepPin, HIGH);
+    m_isStepHigh = true;
+  }
+}
+
+void StepperAxis::forceStepISR()
+{
+  digitalWrite(m_stepPin, HIGH);
+  digitalWrite(m_stepPin, LOW);
+  m_currentSteps++;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Properties
+AxisState StepperAxis::movingState() const {
+  if (m_isMoving)
+    return (m_currentDir == FORWARD) ? MOVING_END : MOVING_HOME;
+  
+  if (isMinHit()) return AT_HOME;
+  if (isMaxHit()) return AT_END;
+
+  return IDLE;
 }

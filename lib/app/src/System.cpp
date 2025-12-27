@@ -24,17 +24,27 @@ static StepperAxis zAxis(Z_STEP_PIN, Z_DIR_PIN, Z_EN_PIN,
 static StepperAxis cAxis(C_STEP_PIN, C_DIR_PIN, C_EN_PIN,
                          NO_PIN, NO_PIN, C_HOME_DIR, C_END_DIR, true);
 
-static AxisSynchronizer sync(zAxis, cAxis);
+static AxisSynchronizer sync(&zAxis, &cAxis);
 
 static EncButton encoder(ENC_A, ENC_B, ENC_SW, INPUT_PULLUP, INPUT_PULLUP);
 
 static LCD lcd(LCD_CLK, LCD_DATA, LCD_CS);
 
 //////////////////////////////////////////////////////////////////////////
+// ISR
+ISR(TIMER1_COMPA_vect) {
+    zAxis.isrUpdate();
+    sync.isrUpdate();
+}
+
+//////////////////////////////////////////////////////////////////////////
 // Common Public Methods
 void System::init() {
+  Serial.begin(9600);
+
   initHardware();
   initMotion();
+  initTimer();
 
   m_state = INIT;
   m_prevState = (SystemState)255;
@@ -42,13 +52,11 @@ void System::init() {
 
 void System::update() {
   encoder.tick();
-  lcd.update(m_state);
 
   updateFsm();
   changeSpeed();
 
-  if (m_state == MACHINING) sync.update();
-  else zAxis.update();
+  lcd.update(m_state, zAxis.ticksPerStep());
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -61,7 +69,24 @@ void System::initHardware() {
 }
 
 void System::initMotion() {
-  sync.setRatio(C_PER_Z);
+  sync.setRatio(C_STEPS, Z_STEPS);
+}
+
+void System::initTimer()
+{
+  noInterrupts();
+
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1 = 0;
+
+  OCR1A = 99;
+
+  TCCR1B |= (1 << WGM12);
+  TCCR1B |= (1 << CS11);
+  TIMSK1 |= (1 << OCIE1A);
+
+  interrupts();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -124,37 +149,26 @@ void System::onEnter() {
 //////////////////////////////////////////////////////////////////////////
 // FSM Methods
 void System::onInit() {
-  Serial.println("INIT");
-
   if (zAxis.movingState() != AxisState::AT_HOME)
     zAxis.goHome();
   
   cAxis.disable();
 }
 
-void System::onReady() {
-  Serial.println("READY");
-}
+void System::onReady() {}
 
 void System::onMachining() {
-  Serial.println("MACHINING");
-
   cAxis.enable();
   cAxis.move(FORWARD);
-
   zAxis.goToEnd();
 }
 
 void System::onPartRemoval() {
-  Serial.println("PART_REMOVAL");
-
   cAxis.stop();
   cAxis.disable();
 }
 
 void System::onHoming() {
-  Serial.println("HOMING");
-
   zAxis.goHome();
 }
 
@@ -162,5 +176,12 @@ void System::onHoming() {
 // Motion
 void System::changeSpeed() {
   if (!encoder.turn()) return;
-  zAxis.setSpeed(encoder.dir());
+
+  static uint8_t counter = 0;
+  counter++;
+  
+  if (counter == 2) {
+    zAxis.setSpeed(encoder.dir());
+    counter = 0;
+  }
 }
