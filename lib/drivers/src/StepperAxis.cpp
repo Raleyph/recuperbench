@@ -98,20 +98,30 @@ void StepperAxis::stop() {
   interrupts();
 }
 
-void StepperAxis::setSpeed(int8_t dir) {
-  if (m_isCAxis || dir == 0) return;
+void StepperAxis::setSpeedTicks(uint8_t ticks)
+{
+  if (m_isCAxis) return;
+  ticks = constrain(ticks, STEP_INTERVAL_MIN, STEP_INTERVAL_MAX);
+  m_ticksPerStep = ticks;
+}
 
-  noInterrupts();
+void StepperAxis::changeSpeed(int8_t dir)
+{
+    if (m_isCAxis || dir == 0) return;
 
-  int8_t v = m_ticksPerStep;
+    noInterrupts();
 
-  if (dir > 0) v -= 1;
-  if (dir < 0) v += 1;
+    int8_t v = m_ticksPerStep;
 
-  v = constrain((uint8_t)v, STEP_INTERVAL_MIN, STEP_INTERVAL_MAX);
-  m_ticksPerStep = v;
+    if (dir > 0)
+        v -= 1;
+    if (dir < 0)
+        v += 1;
 
-  interrupts();
+    v = constrain((uint8_t)v, STEP_INTERVAL_MIN, STEP_INTERVAL_MAX);
+    m_ticksPerStep = v;
+
+    interrupts();
 }
 
 void StepperAxis::isrUpdate()

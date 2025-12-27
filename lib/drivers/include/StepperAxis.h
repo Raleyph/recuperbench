@@ -71,7 +71,9 @@ class StepperAxis {
     // Movement
     void move(uint8_t direction, uint32_t steps = STEPS_LIMIT);
     void stop();
-    void setSpeed(int8_t dir);
+
+    void setSpeedTicks(uint8_t ticks);
+    void changeSpeed(int8_t dir);
 
     void isrUpdate();
     void forceStepISR();

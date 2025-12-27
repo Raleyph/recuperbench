@@ -19,15 +19,17 @@ class LCD {
         bool m_isSplashActive;
 
     private:
+        uint8_t ticksToPercents(uint8_t speed);
+
         void drawSplash();
-        void drawMain(SystemState state, uint16_t ticksPerStep);
+        void drawMain(SystemState state,  uint8_t speed, uint8_t savedSpeed);
         void clear();
 
     public:
         LCD(uint8_t clk, uint8_t data, uint8_t cs);
 
         void begin();
-        void update(SystemState state, uint16_t ticksPerStep);
+        void update(SystemState state,  uint8_t speed, uint8_t savedSpeed);
         void startSplash();
 };
 

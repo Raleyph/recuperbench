@@ -31,6 +31,8 @@ class System {
     static void onHoming();
 
     static void changeSpeed();
+    static void saveSpeed(uint16_t speed);
+    static uint16_t loadSpeed();
 };
 
 #endif // SYSTEM_H

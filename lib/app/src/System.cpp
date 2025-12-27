@@ -1,6 +1,8 @@
 // Copyright © 2025 MG Inc.
 // Copyright © 2025 Raleyph
 
+#include <EEPROM.h>
+
 #include <EncButton.h>
 
 #include <Pins.h>
@@ -8,7 +10,6 @@
 
 #include <StepperAxis.h>
 #include <AxisSynchronizer.h>
-
 #include <LCD.h>
 
 #include "System.h"
@@ -56,7 +57,7 @@ void System::update() {
   updateFsm();
   changeSpeed();
 
-  lcd.update(m_state, zAxis.ticksPerStep());
+  lcd.update(m_state, zAxis.ticksPerStep(), loadSpeed());
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -69,6 +70,8 @@ void System::initHardware() {
 }
 
 void System::initMotion() {
+  uint8_t speed = loadSpeed();
+  zAxis.setSpeedTicks(speed);
   sync.setRatio(C_STEPS, Z_STEPS);
 }
 
@@ -107,6 +110,9 @@ void System::updateFsm() {
     case READY:
       if (encoder.click() && (zAxis.movingState() == AxisState::AT_HOME))
         m_state = MACHINING;
+
+      if (encoder.hold() && !zAxis.isMoving())
+        saveSpeed(zAxis.ticksPerStep());
       break;
 
     case MACHINING:
@@ -173,7 +179,7 @@ void System::onHoming() {
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Motion
+// Speed & EEPROM
 void System::changeSpeed() {
   if (!encoder.turn()) return;
 
@@ -181,7 +187,28 @@ void System::changeSpeed() {
   counter++;
   
   if (counter == 2) {
-    zAxis.setSpeed(encoder.dir());
+    zAxis.changeSpeed(encoder.dir());
     counter = 0;
   }
+}
+
+void System::saveSpeed(uint16_t speed)
+{
+  uint16_t currentSpeed = loadSpeed();
+  if (currentSpeed == speed) return;
+
+  speed = constrain(speed, STEP_INTERVAL_MIN, STEP_INTERVAL_MAX);
+  
+  EEPROM.put(0, speed);
+}
+
+uint16_t System::loadSpeed()
+{
+  uint16_t speed;
+  EEPROM.get(0, speed);
+
+  if (speed < STEP_INTERVAL_MIN || speed > STEP_INTERVAL_MAX)
+    speed = STEP_INTERVAL_MIN;
+  
+  return speed;
 }

@@ -24,7 +24,7 @@ void LCD::begin()
     m_u8g2.enableUTF8Print();
 }
 
-void LCD::update(SystemState state, uint16_t ticksPerStep)
+void LCD::update(SystemState state, uint8_t speed, uint8_t savedSpeed)
 {
     if (m_isSplashActive) {
         if (millis() - m_splashStartTime >= SPLASH_DURATION) {
@@ -35,7 +35,7 @@ void LCD::update(SystemState state, uint16_t ticksPerStep)
     }
 
     if (millis() - m_lastRedraw >= REDRAW_INTERVAL) {
-        drawMain(state, ticksPerStep);
+        drawMain(state, speed, savedSpeed);
         m_lastRedraw = millis();
     }
 }
@@ -45,6 +45,11 @@ void LCD::startSplash()
     m_isSplashActive = true;
     m_splashStartTime = millis();
     drawSplash();
+}
+
+uint8_t LCD::ticksToPercents(uint8_t speed)
+{
+    return (STEP_INTERVAL_MAX - speed + 1) * 10;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -73,7 +78,7 @@ void LCD::drawSplash()
     m_u8g2.sendBuffer();
 }
 
-void LCD::drawMain(SystemState state, uint16_t ticksPerStep)
+void LCD::drawMain(SystemState state,  uint8_t speed, uint8_t savedSpeed)
 {
     m_u8g2.clearBuffer();
 
@@ -86,13 +91,14 @@ void LCD::drawMain(SystemState state, uint16_t ticksPerStep)
     m_u8g2.setCursor(4, 24);
     m_u8g2.print("SPEED:");
     m_u8g2.setCursor(42, 24);
-    m_u8g2.print((STEP_INTERVAL_MAX - ticksPerStep + 1) * 10);
+    m_u8g2.print(ticksToPercents(speed));
     m_u8g2.print("%");
 
     m_u8g2.setCursor(4, 36);
     m_u8g2.print("ST.SPEED:");
     m_u8g2.setCursor(60, 36);
-    m_u8g2.print("NaN");
+    m_u8g2.print(ticksToPercents(savedSpeed));
+    m_u8g2.print("%");
 
     m_u8g2.sendBuffer();
 }
