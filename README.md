@@ -192,6 +192,6 @@ Always test with motors mechanically disengaged or at a safely controlled low-en
 
 Released under the [MIT License](LICENSE).
 
-Copyright © 2025 **Raleyph**
+Copyright © 2025 Raleyph
 
-Designed by [Raleyph](https://github.com/Raleyph)
+Designed by [Raleyph](https://github.com/Raleyph) with the support of VOLVI
