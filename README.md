@@ -4,7 +4,7 @@
 
 The firmware runs on an **ATmega2560** using the Arduino framework and PlatformIO.
 
-> **Firmware version:** v1.4 (as defined in `lib/config/include/UI.h`)
+> **Firmware version:** v1.4
 
 ## Features
 
@@ -194,4 +194,4 @@ Released under the [MIT License](LICENSE).
 
 Copyright © 2025 **Raleyph**
 
-Designed by [Raleyph](https://github.com/Raleyph) · [MG Inc.](https://mg-inc.org)
+Designed by [Raleyph](https://github.com/Raleyph)
